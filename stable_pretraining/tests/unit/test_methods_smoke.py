@@ -299,3 +299,16 @@ def test_eval_mode_no_loss(method_name: str, kwargs: dict) -> None:
         output = model(v)
     assert torch.isfinite(output.loss).all()
     assert output.embedding is not None and output.embedding.shape[0] == B
+
+
+def test_dict_native_directclr_forward_backward():
+    """Exercise the Module-native public method alongside the tensor APIs."""
+    backbone = torch.nn.Linear(4, 6)
+    model = M.DirectCLR(backbone=backbone, subspace_dim=3)
+    first, second = torch.randn(4, 4), torch.randn(4, 4)
+    output = model({"views": [{"image": first}, {"image": second}]}, stage="fit")
+    assert output["embedding"].shape == (8, 6)
+    assert torch.isfinite(output["loss"])
+    output["loss"].backward()
+    assert backbone.weight.grad is not None
+    assert backbone.weight.grad.abs().sum() > 0

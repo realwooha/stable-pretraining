@@ -189,3 +189,10 @@ def test_distribution_regularized_methods_evaluate_without_views(monkeypatch, na
     result = model(images=images)
     torch.testing.assert_close(result.embedding, backbone(images))
     assert result.loss.item() == result.inv_loss.item() == 0
+
+
+@pytest.mark.parametrize("backbone", [None, "resnet50", 4])
+def test_dict_native_directclr_rejects_non_module_backbones(backbone):
+    """Invalid encoders fail before the training lifecycle is initialized."""
+    with pytest.raises(TypeError, match="torch.nn.Module"):
+        methods.DirectCLR(backbone=backbone, subspace_dim=2)

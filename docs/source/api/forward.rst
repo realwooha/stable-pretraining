@@ -49,6 +49,15 @@ Or in Python code:
 Available Forward Functions
 ---------------------------
 
+DirectCLR
+~~~~~~~~~
+
+.. autofunction:: directclr
+
+Required module attributes: ``backbone``, ``subspace_dim`` and
+``directclr_loss``. See :doc:`../directclr` for the evaluation protocol and
+matched controls.
+
 SimCLR
 ~~~~~~
 

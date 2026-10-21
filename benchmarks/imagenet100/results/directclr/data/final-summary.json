@@ -1,0 +1,39 @@
+{
+  "audits_sha256": {
+    "CIFAR10": "d25292bea466ba970a172cb80a664051c534d0099afe23ea0d58e871c18d29a0",
+    "ImageNet100": "8eabdc1d43a972d418a77324de93790cf7dc143a2074857ffa4dff713cd6e9d4",
+    "paired_readout": "94ba4bd31e56890055ab5dbf618a0962968e6415ba25fd091ceb7a235624237f"
+  },
+  "cifar10_supervised_transfer_dev": {
+    "correct1": 4693,
+    "correct5": 4991,
+    "samples": 5000,
+    "top1_percent": 93.86,
+    "top5_percent": 99.82
+  },
+  "cifar10_supervised_transfer_test": {
+    "correct1": 9357,
+    "correct5": 9986,
+    "samples": 10000,
+    "top1_percent": 93.57,
+    "top5_percent": 99.86
+  },
+  "derived_summary_not_raw_audit": true,
+  "imagenet100_final_val": {
+    "correct1": 3990,
+    "correct5": 4749,
+    "samples": 5000,
+    "top1_percent": 79.8,
+    "top5_percent": 94.98
+  },
+  "incremental_costs": {
+    "CIFAR_all_GPU_seconds": 2748,
+    "L40_health_GPU_seconds": 104,
+    "L40_migration_GPU_seconds": 2168,
+    "Round9_main_four_L40_GPU_seconds": 443656,
+    "Round9_source_A6000_GPU_seconds": 13232,
+    "projection_CPU_core_seconds": 816,
+    "subspace_CPU_core_seconds": 3144
+  },
+  "no_new_training_or_held_out_evaluation": true
+}

@@ -141,3 +141,16 @@ def test_mim_refiner_freezes_only_requested_lower_student_blocks():
     )
     assert all(p.requires_grad for p in model.backbone.student.blocks[1].parameters())
     assert all(not p.requires_grad for p in model.backbone.teacher.parameters())
+
+
+def test_dict_native_directclr_evaluation_preserves_full_features_and_labels():
+    """A fixed training subspace must not truncate downstream embeddings."""
+    model = methods.DirectCLR(backbone=torch.nn.Linear(4, 6), subspace_dim=2).eval()
+    batch = {"image": torch.randn(3, 4), "label": torch.tensor([1, 0, 1])}
+    with torch.no_grad():
+        output = model(batch, stage="validate")
+        expected = model.backbone(batch["image"])
+    torch.testing.assert_close(output["embedding"], expected)
+    assert output["embedding"].shape == (3, 6)
+    assert output["label"] is batch["label"]
+    assert "loss" not in output
