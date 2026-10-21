@@ -84,3 +84,14 @@ are in `benchmarks/imagenet100/RESULTS.md
 <https://github.com/galilai-group/stable-pretraining/blob/main/benchmarks/imagenet100/RESULTS.md>`_.
 The reference defaults are 360 dimensions and temperature 0.1; the recorded
 ImageNet-100 experiments fix 256 dimensions and select temperature on dev.
+
+
+Fixed-budget CIFAR development controls
+---------------------------------------------
+
+On the same fixed 5,000-image development split and 100-epoch supervised
+recipe, random initialization gives 88.38% and a frozen pretrained encoder
+with head-only fitting gives 80.40%; historical pretrained full fine-tuning
+gives 93.86%. Independent CPU audits verify both new counts. No new test
+evaluation is used. These are single-seed, fixed-recipe transfer controls;
+their per-epoch curves and interpretation appear in the results page.
