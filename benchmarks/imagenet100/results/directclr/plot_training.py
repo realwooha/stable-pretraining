@@ -1,7 +1,6 @@
-"""Regenerate submission figures from the included audited scalar inputs."""
+"""Regenerate DirectCLR training figures from the included scalar inputs."""
 
 import csv
-import json
 import os
 from pathlib import Path
 
@@ -10,14 +9,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
-import numpy as np
 
 PUBLIC = Path(__file__).resolve().parent
-
-
-def load(path: Path) -> dict:
-    """Read a public numeric input without accessing weights or features."""
-    return json.loads(path.read_text())
 
 
 lr_rows = []
@@ -51,12 +44,9 @@ colors = ["#327ba8", "#d69236", "#7865a8", "#248977"]
 
 
 def figure(fig, name: str) -> None:
-    """Save an English figure for GitHub and an exportable vector counterpart."""
+    """Save an English PNG figure for the experiment report."""
     fig.tight_layout()
-    for ext in ["png", "svg"]:
-        fig.savefig(
-            PUBLIC / "figures" / (name + "." + ext), dpi=160, bbox_inches="tight"
-        )
+    fig.savefig(PUBLIC / "figures" / (name + ".png"), dpi=160, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -162,31 +152,3 @@ axes[1].legend()
 for ax in axes:
     ax.grid(alpha=0.2)
 figure(fig, "03-cifar-transfer-and-resume")
-x = csv_rows("subspace-selection.csv")
-spectra = load(PUBLIC / "data/paired-spectra.json")
-arms = ["first256", "last256", "projected256", "full2048"]
-labels = ["First256", "Last256", "Fixed Q256", "Full2048"]
-fig, axes = plt.subplots(1, 2, figsize=(12, 3.7))
-values = [float(next(e for e in x if e["arm"] == arm)["top1"]) for arm in arms]
-bars = axes[0].bar(labels, values, color=colors)
-for bar, v in zip(bars, values):
-    axes[0].text(bar.get_x() + bar.get_width() / 2, v + 0.8, f"{v:.2f}", ha="center")
-axes[0].set(
-    ylim=(0, 100),
-    ylabel="Final dev Top-1 (%)",
-    title="Equal 25,700-parameter heads except Full2048",
-)
-for arm, label, col in zip(arms, labels, colors):
-    eig = np.array(spectra["arms"][arm]["covariance_eigenvalues"])
-    axes[1].semilogy(
-        np.arange(1, len(eig) + 1) / len(eig), eig / eig.sum(), color=col, label=label
-    )
-axes[1].set(
-    xlabel="Dimension index / d",
-    ylabel="Normalized covariance eigenvalue",
-    title="Same 4,096 fit rows; L2 then FP64 centering",
-)
-axes[1].legend(fontsize=8)
-for ax in axes:
-    ax.grid(axis="y", alpha=0.2)
-figure(fig, "04-subspace-and-paired-spectra")

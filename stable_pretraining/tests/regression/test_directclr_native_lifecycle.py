@@ -20,7 +20,7 @@ class _StopAfterEpoch(pl.Callback):
         trainer.should_stop = True
 
 
-def _module(composable):
+def _module():
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(47)
         backbone = nn.Sequential(nn.Linear(4, 3), nn.BatchNorm1d(3))
@@ -33,13 +33,11 @@ def _module(composable):
             "interval": "step",
         },
     )
-    if composable:
-        return spt.Module(
-            forward=spt.forward.directclr,
-            directclr_loss=spt.losses.DirectCLRLoss(0.2),
-            **options,
-        )
-    return spt.DirectCLR(temperature=0.2, **options)
+    return spt.Module(
+        forward=spt.forward.directclr,
+        directclr_loss=spt.losses.DirectCLRLoss(0.2),
+        **options,
+    )
 
 
 def _run(module, directory, stop=False, checkpoint=None):
@@ -88,12 +86,11 @@ def _run(module, directory, stop=False, checkpoint=None):
     return trainer
 
 
-@pytest.mark.parametrize("composable", [False, True])
-def test_directclr_manager_resume_matches_uninterrupted_training(tmp_path, composable):
+def test_directclr_manager_resume_matches_uninterrupted_training(tmp_path):
     """Check model, BN, online probe, momentum and scheduler at a fixed horizon."""
-    reference = _module(composable)
+    reference = _module()
     full = _run(reference, tmp_path / "full")
-    interrupted = _module(composable)
+    interrupted = _module()
     first = _run(interrupted, tmp_path / "first", stop=True)
     assert first.global_step == 3
     checkpoint = tmp_path / "restart.ckpt"
@@ -101,7 +98,7 @@ def test_directclr_manager_resume_matches_uninterrupted_training(tmp_path, compo
     saved = torch.load(checkpoint, weights_only=False)
     assert len(saved["optimizer_states"]) == len(saved["lr_schedulers"]) == 2
     assert all(state["state"] for state in saved["optimizer_states"])
-    resumed = _module(composable)
+    resumed = _module()
     second = _run(resumed, tmp_path / "second", checkpoint=Path(checkpoint))
     assert second.global_step == full.global_step == 6
     _assert_tree_close(_snapshot(second, resumed), _snapshot(full, reference))

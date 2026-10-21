@@ -1,4 +1,4 @@
-"""Exercise the benchmark lifecycle before scheduling paid GPU training."""
+"""Exercise the standalone benchmark training and evaluation lifecycle."""
 
 import argparse
 import copy
@@ -249,3 +249,23 @@ def test_epoch_end_resume_completes_the_original_optimizer_budget(tmp_path):
         checkpoint = torch.load(args.resume, weights_only=False, map_location="cpu")
         assert checkpoint["lr_schedulers"][0]["last_epoch"] == expected
     assert summary["updates_this_invocation"] == 8
+
+
+def test_cache_only_prepares_readout_without_scoring_held_out_data(
+    tmp_path, monkeypatch
+):
+    args = _args(tmp_path)
+    args.command = "evaluate"
+    args.cache_only = True
+
+    def forbidden_fit(*args, **kwargs):
+        raise AssertionError("cache preparation must not fit or score a classifier")
+
+    monkeypatch.setattr(benchmark, "_fit_linear_classifier", forbidden_fit)
+    benchmark.evaluate(args)
+    features = torch.load(args.output / "features.pt", weights_only=True)
+    assert features["x_train"].shape == (32, 512)
+    assert features["x_val"].shape == (16, 512)
+    assert (args.output / "feature_manifest.json").is_file()
+    assert not (args.output / "evaluation.json").exists()
+    assert not (args.output / "spectrum.pt").exists()

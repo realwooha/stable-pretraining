@@ -57,6 +57,7 @@ def _assert_loss_and_backward(model: torch.nn.Module, output) -> None:
 # --- two-view methods (forward(view1, view2)) ----------------------------
 
 TWO_VIEW_METHODS = [
+    ("DirectCLR", {"subspace_dim": 64}),
     ("BarlowTwins", {"projector_dims": (256, 256, 256)}),
     ("BYOL", {"projector_dims": (512, 64), "predictor_dims": (512, 64)}),
     ("CMAE", {"projector_dim": 64}),
@@ -280,6 +281,7 @@ def test_mim_refiner_forward_backward():
 @pytest.mark.parametrize(
     "method_name,kwargs",
     [
+        ("DirectCLR", {"subspace_dim": 64}),
         ("SimCLR", {"projector_dims": (256, 256, 64)}),
         ("BYOL", {"projector_dims": (256, 64), "predictor_dims": (256, 64)}),
         ("VICReg", {"projector_dims": (256, 256, 256)}),
@@ -299,16 +301,3 @@ def test_eval_mode_no_loss(method_name: str, kwargs: dict) -> None:
         output = model(v)
     assert torch.isfinite(output.loss).all()
     assert output.embedding is not None and output.embedding.shape[0] == B
-
-
-def test_dict_native_directclr_forward_backward():
-    """Exercise the Module-native public method alongside the tensor APIs."""
-    backbone = torch.nn.Linear(4, 6)
-    model = M.DirectCLR(backbone=backbone, subspace_dim=3)
-    first, second = torch.randn(4, 4), torch.randn(4, 4)
-    output = model({"views": [{"image": first}, {"image": second}]}, stage="fit")
-    assert output["embedding"].shape == (8, 6)
-    assert torch.isfinite(output["loss"])
-    output["loss"].backward()
-    assert backbone.weight.grad is not None
-    assert backbone.weight.grad.abs().sum() > 0

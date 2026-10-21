@@ -199,6 +199,12 @@ def directclr(self, batch: dict[str, Any], stage: str) -> dict[str, torch.Tensor
         the backbone separately, preserving per-view BatchNorm statistics.
         Selecting dimensions is a fixed operation, not a trainable projector.
     """
+    if (
+        isinstance(self.subspace_dim, bool)
+        or not isinstance(self.subspace_dim, int)
+        or self.subspace_dim < 1
+    ):
+        raise ValueError("subspace_dim must be a positive integer")
     views = _get_views_list(batch)
     if views is None:
         if self.training:

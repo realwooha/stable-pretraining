@@ -385,12 +385,18 @@ def train(args: argparse.Namespace) -> pl.Trainer:
         )
     else:
         dimension = width if args.method == "full" else args.dim
-        module = spt.DirectCLR(
-            backbone,
+        module = spt.Module(
+            forward=spt.forward.directclr,
+            backbone=backbone,
             subspace_dim=dimension,
-            temperature=args.temperature,
+            directclr_loss=spt.losses.DirectCLRLoss(args.temperature),
             optim=optim,
-            hparams=metadata,
+            hparams={
+                **metadata,
+                "method": "directclr",
+                "subspace_dim": dimension,
+                "temperature": args.temperature,
+            },
         )
     probe = spt.OnlineProbe(
         module,
@@ -622,6 +628,8 @@ def evaluate(args: argparse.Namespace) -> None:
         }
         torch.save(features, cache_file)
         _save_json(args.output / "feature_manifest.json", manifest)
+    if getattr(args, "cache_only", False):
+        return
     del backbone
     if args.accelerator == "gpu":
         torch.cuda.empty_cache()
@@ -702,6 +710,11 @@ def main() -> None:
     )
     parser.add_argument("--dim", type=int, default=360)
     parser.add_argument("--temperature", type=float, default=0.1)
+    parser.add_argument(
+        "--cache-only",
+        action="store_true",
+        help="Extract frozen features without fitting or scoring a classifier",
+    )
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument(

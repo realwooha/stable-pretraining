@@ -1,5 +1,7 @@
 """Numerical, gradient, and public-API contracts for DirectCLR."""
 
+import copy
+from importlib import import_module
 from unittest.mock import Mock
 
 import pytest
@@ -105,7 +107,12 @@ def test_half_precision_is_promoted_and_zero_features_are_finite(dtype):
 
 
 def make_model(dim=3):
-    model = spt.DirectCLR(nn.Linear(4, 6, bias=False), subspace_dim=dim)
+    model = spt.Module(
+        forward=spt.forward.directclr,
+        backbone=nn.Linear(4, 6, bias=False),
+        subspace_dim=dim,
+        directclr_loss=DirectCLRLoss(),
+    )
     model.log = Mock()
     return model
 
@@ -156,7 +163,7 @@ def test_evaluation_returns_unsliced_features_without_loss():
 @pytest.mark.parametrize("dim", [0, -1, 1.5, True])
 def test_invalid_subspace_dimension(dim):
     with pytest.raises(ValueError, match="subspace_dim"):
-        make_model(dim)
+        make_model(dim)(paired_batch(), stage="fit")
 
 
 def test_training_rejects_single_view_and_invalid_width():
@@ -177,18 +184,96 @@ def test_misaligned_labels_are_rejected():
         make_model()(batch, stage="fit")
 
 
+def image_encoder():
+    return nn.Sequential(
+        nn.Conv2d(3, 6, 1, bias=False),
+        nn.BatchNorm2d(6),
+        nn.AdaptiveAvgPool2d(1),
+        nn.Flatten(),
+    )
+
+
 def test_composable_forward_matches_method_class():
-    model, batch = make_model(), paired_batch()
+    model = spt.DirectCLR(encoder_name=image_encoder(), subspace_dim=3)
     module = spt.Module(
         forward=spt.forward.directclr,
-        backbone=model.backbone,
+        backbone=copy.deepcopy(model.backbone),
         subspace_dim=3,
         directclr_loss=DirectCLRLoss(),
     )
     module.log = Mock()
-    torch.testing.assert_close(
-        module(batch, stage="fit")["loss"], model(batch, stage="fit")["loss"]
+    first, second = torch.randn(4, 3, 8, 8), torch.randn(4, 3, 8, 8)
+    batch = {"views": [{"image": first}, {"image": second}]}
+    tensor_output, dict_output = model(first, second), module(batch, stage="fit")
+    assert isinstance(
+        tensor_output,
+        import_module("stable_pretraining.methods.directclr").DirectCLROutput,
     )
+    assert model.embed_dim == 6
+    for key in ("loss", "embedding", "projection"):
+        torch.testing.assert_close(getattr(tensor_output, key), dict_output[key])
+    assert tensor_output.embedding.shape == (8, 6)
+    assert tensor_output.projection.shape == (8, 3)
+    for actual, expected in zip(
+        torch.autograd.grad(tensor_output.loss, model.backbone.parameters()),
+        torch.autograd.grad(dict_output["loss"], module.backbone.parameters()),
+    ):
+        torch.testing.assert_close(actual, expected)
+
+
+def test_method_class_single_view_returns_full_features_and_zero_loss():
+    model = spt.DirectCLR(image_encoder().double(), subspace_dim=2).eval()
+    images = torch.randn(4, 3, 8, 8, dtype=torch.float64)
+    with torch.no_grad():
+        output = model(images)
+        torch.testing.assert_close(output.embedding, model.backbone(images))
+    assert output.embedding.shape == (4, 6)
+    assert output.loss.shape == () and output.loss.item() == 0
+    assert output.loss.dtype == output.embedding.dtype
+    assert output.loss.device == output.embedding.device
+    assert output.projection is None and not output.embedding.requires_grad
+
+
+@pytest.mark.parametrize("dimension", [0, -1, 1.5, True, 7])
+def test_method_class_rejects_invalid_subspace_at_construction(dimension):
+    with pytest.raises(ValueError, match="subspace_dim"):
+        spt.DirectCLR(image_encoder(), subspace_dim=dimension)
+
+
+def test_shape_probe_preserves_bn_buffers_mixed_modes_and_rng():
+    encoder = image_encoder().train()
+    encoder[1].eval()
+    before = copy.deepcopy(encoder.state_dict())
+    modes = [m.training for m in encoder.modules()]
+    rng = torch.random.get_rng_state().clone()
+    model = spt.DirectCLR(encoder, subspace_dim=6)
+    assert model.backbone is encoder and model.embed_dim == 6
+    assert [m.training for m in encoder.modules()] == modes
+    assert torch.equal(torch.random.get_rng_state(), rng)
+    for name, tensor in encoder.state_dict().items():
+        torch.testing.assert_close(tensor, before[name], rtol=0, atol=0)
+
+
+def test_method_class_forwards_timm_encoder_options(monkeypatch):
+    requests = []
+
+    def build(name, **kwargs):
+        requests.append((name, kwargs))
+        return image_encoder()
+
+    monkeypatch.setattr(
+        import_module("stable_pretraining.methods.directclr"), "from_timm", build
+    )
+    model = spt.DirectCLR("tiny", subspace_dim=3, low_resolution=True, pretrained=True)
+    assert model.embed_dim == 6
+    assert requests == [
+        ("tiny", {"num_classes": 0, "low_resolution": True, "pretrained": True})
+    ]
+
+
+def test_method_class_rejects_nonflat_encoder_features():
+    with pytest.raises(ValueError, match="flat"):
+        spt.DirectCLR(nn.Identity(), subspace_dim=2)
 
 
 @pytest.mark.gpu

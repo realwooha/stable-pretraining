@@ -393,33 +393,6 @@ def test_coordinate_export_preserves_values_and_supported_dtypes(tmp_path, dtype
         assert saved["coordinates"].dtype == expected.numpy().dtype
 
 
-class _DistributedModel(Module):
-    """Use a class-defined forward so spawn can reconstruct the test module."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            backbone=nn.Linear(3, 4),
-            optim={
-                "optimizer": {"type": "SGD", "lr": 0.01},
-                "scheduler": {"type": "ConstantLR", "factor": 1.0},
-            },
-        )
-
-    def forward(
-        self, batch: dict[str, torch.Tensor], stage: str
-    ) -> dict[str, torch.Tensor]:
-        """Compute the fixture's backbone features and training loss.
-
-        Args:
-            batch: Synthetic images and labels.
-            stage: Lightning stage passed through to the shared fixture.
-
-        Returns:
-            Embeddings, labels and a scalar backbone loss.
-        """
-        return _forward(self, batch, stage)
-
-
 class _DistributedAudit(pl.Callback):
     def on_train_end(self, trainer, pl_module):
         from pathlib import Path
@@ -449,19 +422,13 @@ def test_two_rank_cpu_ddp_handles_warmup_and_idle_projection(tmp_path, monkeypat
     for name in list(os.environ):
         if name.startswith("SLURM_"):
             monkeypatch.delenv(name)
-    # Optional logging/environment callbacks own locks and are unrelated to the
-    # projection/DDP contract exercised here; keep spawn's fixture serializable.
-    monkeypatch.setattr(
-        "lightning.pytorch.trainer.connectors.callback_connector._load_external_callbacks",
-        lambda group: [],
-    )
-    model = _DistributedModel()
+    model = _model()
     cb = _callback(model, warmup_epochs=1, update_interval=2, plot_interval=1)
     trainer = pl.Trainer(
         accelerator="cpu",
         devices=2,
         strategy=DDPStrategy(
-            start_method="spawn",
+            start_method="fork",
             process_group_backend="gloo",
             find_unused_parameters=False,
         ),

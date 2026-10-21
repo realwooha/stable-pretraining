@@ -4,14 +4,14 @@ Unreleased
 
 **DirectCLR**
 
-- Add fixed-subspace contrastive learning through ``DirectCLR``, a composable
-  forward function and a symmetric cross-view distributed InfoNCE loss.
+- Add a two-view ``DirectCLR`` method class and ``DirectCLROutput``, alongside
+  a composable forward and symmetric cross-view distributed InfoNCE loss.
 - Preserve complete backbone features for downstream evaluation and expose
   the method through public runtime and static typing interfaces.
 - Add staged data preparation/training/frozen evaluation, CPU/DDP correctness
   tests, and documented ImageNet-100 validation with training curves.
-- Document separate CIFAR-10 supervised transfer and posthoc frozen-feature
-  diagnostics, including protocol differences and single-seed limits.
+- Document separate CIFAR-10 supervised transfer, dev-only selection and
+  single-seed interpretation limits.
 
 **New method**
 
