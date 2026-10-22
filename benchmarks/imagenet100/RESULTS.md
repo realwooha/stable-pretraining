@@ -56,7 +56,7 @@ different readout protocol from the main frozen evaluation above.
 
 The preserved diagnostic figure and the four-row
 [summary CSV](results/directclr/data/subspace-readout-summary.csv) report
-previously audited measurements. The CSV contains summary metrics, not the
+previously recorded measurements. The CSV contains summary metrics, not the
 full spectral curve arrays. This is supplementary analysis; reproducing the
 four spectra requires feature extraction and their stated preprocessing.
 
@@ -65,6 +65,26 @@ four spectra requires feature extraction and their stated preprocessing.
 The selected SSL encoder was also fine-tuned on CIFAR-10 with a new 10-class head: 45,000/5,000 train/dev split (seed 2026), input 160, seed 0, 100 epochs / 17,600 updates, SGD encoder/head LR 0.01/0.1, momentum 0.9, weight decay 5e-4, five-epoch warmup then cosine. Dev is 93.86%; one final test is 93.57% (9,357/10,000). Recovery retains the first 45 epochs and the original remaining schedule. This supervised transfer score is separate from ImageNet frozen evaluation.
 
 ![CIFAR supervised fit and learning-rate schedule](results/directclr/figures/03-cifar-transfer-and-resume.png)
+
+### Fixed-budget CIFAR development controls
+
+Two new controls use the same 45,000/5,000 training/dev split, seed 0,
+head initialization, row order, input 160 and 100-epoch / 17,600-update
+schedule as the historical pretrained fine-tuning recipe. Fixed-epoch
+evaluation gives 88.38% (4419/5000) for random-init full supervised
+training and 80.40% (4020/5000) for a frozen pretrained encoder/BN with
+head-only training. Historical pretrained full fine-tuning is 93.86%
+(4693/5000) on this same dev split, 5.48 and 13.46 percentage points higher.
+Each control retains the fixed recipe rather than receiving separate tuning.
+No new CIFAR test or ImageNet final validation is evaluated.
+
+![Same-split CIFAR controls](results/directclr/figures/05-cifar-controls.png)
+
+The curves show all 100 epoch mean losses and the prescribed schedule;
+each control records five bounded same-batch AMP retries with no skipped
+successful updates. These single-seed results support transfer under this
+recipe; they do not determine each control's best achievable accuracy.
+The 400-epoch SSL projector control remains unavailable.
 
 ## Fresh-run commands
 
@@ -89,24 +109,3 @@ python benchmarks/imagenet100/probe_sweep.py sweep --source /data/runs --encoder
 ## Interpretation limits
 
 One encoder seed and the missing matched 400-epoch baseline limit conclusions about method superiority. The early matched comparison is a negative result. Repeated dev exploration, earlier val/test exposure and unlabeled dev images in SSL pretraining limit independence; reduced source resolution, AMP/DDP and recovery boundaries also affect comparisons. This validation uses ImageNet-100 rather than the paper's ImageNet-1K protocol.
-
-
-## Fixed-budget CIFAR development controls
-
-Two new controls use the same 45,000/5,000 training/dev split, seed 0,
-head initialization, row order, input 160 and 100-epoch / 17,600-update
-schedule as the historical pretrained fine-tuning recipe. Independent CPU
-recomputation gives 88.38% (4419/5000) for random-init full supervised
-training and 80.40% (4020/5000) for a frozen pretrained encoder/BN with
-head-only training. Historical pretrained full fine-tuning is 93.86%
-(4693/5000) on this same dev split, 5.48 and 13.46 percentage points higher.
-Each control retains the fixed recipe rather than receiving separate tuning.
-No new CIFAR test or ImageNet final validation is evaluated.
-
-![Same-split CIFAR controls](results/directclr/figures/05-cifar-controls.png)
-
-The curves show all 100 epoch mean losses and the prescribed schedule;
-each control records five bounded same-batch AMP retries with no skipped
-successful updates. These single-seed results support transfer under this
-recipe; they do not determine each control's best achievable accuracy.
-The 400-epoch SSL projector control remains unavailable.
