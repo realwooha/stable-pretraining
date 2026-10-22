@@ -174,6 +174,13 @@ three-encoder same-sample spectral summaries. These results add no GPU image
 training or held-out evaluation and do not establish a causal explanation of
 the accuracy ordering above.
 
+A separate [paper Equation 2 alignment check](../toy/results/directclr-eq2/README.md)
+uses three seeds, fixed synthetic batches and three Euler step sizes. X is
+positive at every recorded state and the step-size check passes, while final
+mean diagonal alignment remains about 0.498 rather than near identity. It
+retains the finite-time negative result and does not establish the paper's
+asymptotic assumptions or explain the image-classification ordering.
+
 ## Interpretation limits
 
 One encoder seed and the missing matched 400-epoch baseline limit conclusions about method superiority. The early matched comparison is a negative result. Repeated dev exploration, earlier val/test exposure and unlabeled dev images in SSL pretraining limit independence; reduced source resolution, AMP/DDP and recovery boundaries also affect comparisons. This validation uses ImageNet-100 rather than the paper's ImageNet-1K protocol.

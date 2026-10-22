@@ -112,3 +112,11 @@ separately included `historical-spectrum-summary.csv`.
 These controlled toy results supplement the image experiments. They do not
 prove the analytical theorems, determine the cause of the ResNet accuracy
 ordering, or resolve the remaining difference from the paper's method ranking.
+
+## Separate distance-objective follow-up
+
+The [Equation 2 alignment experiment](../directclr-eq2/README.md) checks the
+paper's distance objective, observed X positivity and three Euler step sizes
+under a fixed deterministic batch. Its finite-time near-identity outcome is
+also negative. That separate protocol does not replace the released-code
+results above or establish the asymptotic theorem.
