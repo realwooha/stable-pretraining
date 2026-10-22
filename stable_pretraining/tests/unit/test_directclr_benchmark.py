@@ -102,6 +102,29 @@ def test_refuses_accidental_run_overwrite(tmp_path):
         benchmark._reserve_output(args)
 
 
+def test_full_control_uses_all_features_without_a_projector(tmp_path, monkeypatch):
+    widths = []
+    loss_class = benchmark.spt.losses.DirectCLRLoss
+    original_forward = loss_class.forward
+
+    def record_width(self, first, second):
+        widths.append((first.shape[1], second.shape[1]))
+        return original_forward(self, first, second)
+
+    monkeypatch.setattr(loss_class, "forward", record_width)
+    args = _args(tmp_path, method="full")
+    trainer = benchmark.train(args)
+    module = trainer.lightning_module
+    assert args.dim == 64 and module.subspace_dim == 512
+    assert widths and set(widths) == {(512, 512)}
+    assert not hasattr(module, "projector")
+    assert not any("projector" in name for name, _ in module.named_parameters())
+    summary = json.loads((args.output / "training_summary.json").read_text())
+    assert summary["benchmark_method"] == "full"
+    assert summary["contrastive_loss_dim"] == 512
+    assert summary["trainable_projector"] is False
+
+
 def test_imagenet_transform_and_hf_wrapper_without_download():
     from datasets import ClassLabel, Dataset, Features, Image
     from PIL import Image as PILImage

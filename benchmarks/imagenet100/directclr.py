@@ -1,4 +1,4 @@
-"""Train and evaluate DirectCLR with a matched cross-view linear baseline.
+"""Train DirectCLR and matched linear-projector or no-projector controls.
 
 Run ``python benchmarks/imagenet100/directclr.py --help`` for the staged CLI.
 Data preparation is separate from training so no GPU is needed for downloads.
@@ -373,6 +373,8 @@ def train(args: argparse.Namespace) -> pl.Trainer:
         "benchmark_method": args.method,
         "devices": devices,
         "augmentation": augmentation,
+        "contrastive_loss_dim": width if args.method == "full" else args.dim,
+        "trainable_projector": args.method == "linear",
     }
     if args.method == "linear":
         module = spt.Module(
@@ -487,6 +489,9 @@ def train(args: argparse.Namespace) -> pl.Trainer:
             "global_batch_size": args.batch_size,
             "per_device_batch_size": args.batch_size // devices,
             "augmentation": augmentation,
+            "benchmark_method": args.method,
+            "contrastive_loss_dim": metadata["contrastive_loss_dim"],
+            "trainable_projector": metadata["trainable_projector"],
             "peak_gpu_memory_bytes": torch.cuda.max_memory_allocated()
             if args.accelerator == "gpu"
             else None,
@@ -703,7 +708,13 @@ def main() -> None:
     )
     parser.add_argument("--output", type=Path, default=Path("outputs/directclr"))
     parser.add_argument(
-        "--method", choices=["directclr", "linear", "full"], default="directclr"
+        "--method",
+        choices=["directclr", "linear", "full"],
+        default="directclr",
+        help=(
+            "directclr: fixed leading subspace; linear: trainable linear projector; "
+            "full: no projector, contrastive loss on all encoder coordinates"
+        ),
     )
     parser.add_argument(
         "--backbone", choices=["resnet50", "resnet18"], default="resnet50"

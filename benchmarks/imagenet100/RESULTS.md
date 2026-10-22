@@ -7,8 +7,59 @@ DirectCLR uses a fixed subvector for contrastive learning and the full encoder o
 | DirectCLR, 256 dimensions, temperature 0.2 | 400 | Frozen classifier, final validation (5,000 images) | **79.80%** | **94.98%** |
 | Earlier matched DirectCLR control | 100 | Frozen classifier, final validation | 62.26% | — |
 | Earlier matched linear-projector control | 100 | Frozen classifier, final validation | 64.42% | — |
+| Earlier matched no-projector, full-dimensional control | 100 | Frozen classifier, final validation | 59.02% | 85.90% |
 
-The 100-epoch control favors the linear projector by 2.16 points. The 400-epoch result has no matched 400-epoch projector control.
+The 100-epoch comparison favors the linear projector by 2.16 points over DirectCLR. The 400-epoch result has no matched 400-epoch projector control.
+
+## Matched 100-epoch projector ablation
+
+The no-projector control is already implemented as `--method full`: the entire
+2,048-dimensional ResNet-50 output enters the same symmetric cross-view InfoNCE
+loss. There is no trainable projector or feature truncation. `--method directclr`
+uses the first 360 coordinates in this historical comparison; `--method linear`
+adds a bias-free 2,048-to-360 trainable linear layer. The loss and candidate
+definition stay fixed across all three conditions.
+
+These completed encoders share the original 100-epoch / 49,400-update recipe:
+global batch 256, temperature 0.1, LARS peak LR 0.3, seed 0, FP16 mixed precision,
+ten warmup epochs, cosine decay and the symmetric `legacy` augmentation.
+All readouts use frozen full-width, L2-normalized center-crop features and
+100-epoch SGD classifiers with batch 1,024. The fixed protocol uses LR 1;
+the second protocol selects LR from 1/3/10 on the same stratified training/dev
+split, then fits a fresh classifier on all training features. All three select
+LR 10. The table restores previously recorded results; it adds no training or
+held-out evaluation.
+
+| Encoder condition | Contrastive dimensions | Fixed LR 1: val Top-1 | Dev-selected LR: val Top-1 | Dev-selected LR: val Top-5 |
+|---|---:|---:|---:|---:|
+| DirectCLR, fixed leading subspace | 360 | 53.98% | 62.26% | 86.84% |
+| Trainable linear projector | 360 | **57.80%** | **64.42%** | **88.54%** |
+| No projector, full-dimensional objective | 2,048 | 57.42% | 59.02% | 85.90% |
+
+![Matched projector ablation under two classifier protocols](results/directclr/figures/06-projector-ablation.png)
+
+With dev-selected classifiers, DirectCLR exceeds the full-dimensional
+no-projector control by 3.24 percentage points, while remaining 2.16 points
+below the trainable linear projector. With fixed LR 1, DirectCLR is 3.44 points
+below the no-projector control. The ordering depends on the readout protocol;
+these single-seed measurements do not establish general method superiority.
+The full-dimensional control is a separately trained SSL encoder, distinct
+from the full-2,048 readout of the fixed DirectCLR encoder below.
+
+To run this historical no-projector configuration on fresh data, use:
+
+```bash
+python benchmarks/imagenet100/directclr.py train --data-dir /data/imagenet100 --data-revision 0519dc2f402a3a18c6e57f7913db059215eee25b --method full --backbone resnet50 --temperature 0.1 --epochs 100 --batch-size 256 --lr 0.3 --augmentation legacy --precision 16-mixed --devices 1 --seed 0 --output /data/runs/imagenet100-r50-100ep-full-seed0
+```
+
+For a matched fresh comparison, change only `--method` to `directclr` or `linear`
+and name each output directory with that method; the default `--dim 360` applies
+to those two methods, while `full` always uses the encoder width. Cache each
+encoder using the evaluation command below. For the dev-selected readout,
+follow the split/sweep commands with `--encoder-epochs 100`,
+`--methods directclr linear full` and `--learning-rates 1 3 10`.
+The sweep selects on dev and then refits a new full-train classifier. Regenerate
+this comparison figure with `python benchmarks/imagenet100/results/directclr/plot_projector_ablation.py`.
 
 ## Training and selection
 
