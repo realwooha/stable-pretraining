@@ -140,8 +140,8 @@ def _gpu_smoke(args: argparse.Namespace) -> None:
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         raise RuntimeError("each worker must receive exactly one CUDA device")
     properties = torch.cuda.get_device_properties(0)
-    expected = getattr(args, "expected_gpu_name", "NVIDIA L40")
-    if properties.name != expected:
+    expected = getattr(args, "expected_gpu_name", None)
+    if expected is not None and properties.name != expected:
         raise RuntimeError(f"expected {expected}, received {properties.name}")
     toy = argparse.Namespace(**vars(args))
     toy.epochs = 20
@@ -278,8 +278,8 @@ def main() -> None:
     parser.add_argument("--smoke-first", action="store_true")
     parser.add_argument(
         "--expected-gpu-name",
-        default="NVIDIA L40",
-        help="Exact allocated GPU model required by --smoke-first",
+        default=None,
+        help="Optional exact GPU model check for --smoke-first",
     )
     args = parser.parse_args()
     if any(not math.isfinite(lr) or lr <= 0 for lr in args.learning_rates):

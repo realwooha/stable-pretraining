@@ -185,33 +185,59 @@ def test_gpu_worker_rejects_a_model_other_than_requested(monkeypatch):
         sweep._gpu_smoke(argparse.Namespace(expected_gpu_name="NVIDIA L40S"))
 
 
-def test_smoke_cli_passes_the_requested_gpu_model(tmp_path, monkeypatch):
+@pytest.mark.parametrize("expected", [None, "NVIDIA L40S"])
+def test_smoke_cli_passes_the_requested_gpu_model(tmp_path, monkeypatch, expected):
     observed = []
     monkeypatch.setattr(
         sweep, "_gpu_smoke", lambda args: observed.append(args.expected_gpu_name)
     )
     monkeypatch.setattr(sweep, "_run_method", lambda *_: None)
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            str(SCRIPT),
-            "sweep",
-            "--source",
-            str(tmp_path),
-            "--split",
-            str(tmp_path / "split.pt"),
-            "--output",
-            str(tmp_path / "output"),
-            "--methods",
-            "directclr",
-            "--smoke-first",
-            "--expected-gpu-name",
-            "NVIDIA L40S",
-        ],
-    )
+    arguments = [
+        str(SCRIPT),
+        "sweep",
+        "--source",
+        str(tmp_path),
+        "--split",
+        str(tmp_path / "split.pt"),
+        "--output",
+        str(tmp_path / "output"),
+        "--methods",
+        "directclr",
+        "--smoke-first",
+    ]
+    if expected is not None:
+        arguments += ["--expected-gpu-name", expected]
+    monkeypatch.setattr(sys, "argv", arguments)
     sweep.main()
-    assert observed == ["NVIDIA L40S"]
+    assert observed == [expected]
+
+
+@pytest.mark.parametrize("include_option", [False, True])
+def test_gpu_smoke_accepts_other_models_when_no_model_is_required(
+    tmp_path, monkeypatch, include_option
+):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(
+        torch.cuda,
+        "get_device_properties",
+        lambda _: argparse.Namespace(name="NVIDIA A100-SXM4-40GB", uuid="test-device"),
+    )
+    monkeypatch.setattr(torch.cuda, "empty_cache", lambda: None)
+
+    def fit(features, labels, classes, manifest, output, lr, args):
+        output.mkdir()
+        return object()
+
+    monkeypatch.setattr(sweep, "_fit", fit)
+    monkeypatch.setattr(sweep, "_accuracy", lambda *_: {"top1": 1.0})
+    args = argparse.Namespace(output=tmp_path, methods=["directclr"])
+    if include_option:
+        args.expected_gpu_name = None
+    sweep._gpu_smoke(args)
+    result = json.loads((tmp_path / "smoke-directclr/gpu-smoke.json").read_text())
+    assert result["device"] == "NVIDIA A100-SXM4-40GB"
+    assert result["visible_devices"] == 1
 
 
 def test_changing_held_out_labels_cannot_change_selected_recipe(tmp_path):
