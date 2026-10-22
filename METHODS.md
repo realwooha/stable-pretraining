@@ -105,7 +105,7 @@ All loss classes are importable from `stable_pretraining.losses`:
 | Loss | Methods that use it |
 |------|-------------------|
 | `NTXEntLoss` | SimCLR, NNCLR, MoCov2, MoCov3 |
-| `DirectCLRLoss` | DirectCLR; cross-view linear-projector control |
+| `DirectCLRLoss` | DirectCLR |
 | `BYOLLoss` | BYOL |
 | `VICRegLoss` | VICReg, VICRegL |
 | `BarlowTwinsLoss` | Barlow Twins |

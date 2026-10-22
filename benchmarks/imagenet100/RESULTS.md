@@ -29,6 +29,37 @@ Each frozen classifier trains for 100 epochs on L2-normalized full-width feature
 
 ![Frozen classifier training and final evaluation](results/directclr/figures/02-frozen-evaluation.png)
 
+## Fixed-encoder subspace and spectrum diagnostic
+
+The pre-CIFAR SSL encoder and center-view cache stay fixed. First256, last256,
+fixed random orthogonal Q256 and full2048 each receive the same fit/dev rows,
+seed 0, zero-initialized head, LR 15/30/60 grid and 100 epochs / 11,200 updates.
+The learning rate is selected using final-epoch dev only.
+
+| Readout | Head parameters | Dev Top-1 | Effective rank / dimension |
+|---|---:|---:|---:|
+| First256 | 25,700 | 70.94% | 43.55% |
+| Last256 | 25,700 | 75.07% | 84.99% |
+| Fixed Q256 | 25,700 | 77.13% | 80.12% |
+| Full2048 | 204,900 | 81.19% | 47.43% |
+
+![Equal-capacity readouts and paired feature spectra](results/directclr/figures/04-subspace-and-paired-spectra.png)
+
+The first three heads have equal trainable capacity; full2048 has more
+parameters. Q is a fixed posthoc readout, not a projector added to SSL training.
+All spectra use the same 4,096 fit-only rows, L2-normalized features and
+FP64-centered covariance; effective rank uses entropy of data singular values.
+Last256 has a more uniform spectrum than Q256 but lower accuracy, so spectral
+uniformity alone does not explain readout performance. One encoder/projection
+seed and reused dev limit interpretation. These center-cache results use a
+different readout protocol from the main frozen evaluation above.
+
+The preserved diagnostic figure and the four-row
+[summary CSV](results/directclr/data/subspace-readout-summary.csv) report
+previously audited measurements. The CSV contains summary metrics, not the
+full spectral curve arrays. This is supplementary analysis; reproducing the
+four spectra requires feature extraction and their stated preprocessing.
+
 ## Separate supervised transfer
 
 The selected SSL encoder was also fine-tuned on CIFAR-10 with a new 10-class head: 45,000/5,000 train/dev split (seed 2026), input 160, seed 0, 100 epochs / 17,600 updates, SGD encoder/head LR 0.01/0.1, momentum 0.9, weight decay 5e-4, five-epoch warmup then cosine. Dev is 93.86%; one final test is 93.57% (9,357/10,000). Recovery retains the first 45 epochs and the original remaining schedule. This supervised transfer score is separate from ImageNet frozen evaluation.
